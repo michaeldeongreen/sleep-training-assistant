@@ -187,13 +187,37 @@ Pay attention to context clues to determine which nap (1, 2, or 3) they're refer
                             ""type"": ""string"",
                             ""description"": ""Time Savannah fell asleep for bedtime/night""
                         },
+                        ""BedtimeWake1StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 1: start and finish time (e.g., '11:30 PM - 11:45 PM')""
+                        },
+                        ""BedtimeWake2StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 2: start and finish time""
+                        },
+                        ""BedtimeWake3StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 3: start and finish time""
+                        },
+                        ""BedtimeWake4StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 4: start and finish time""
+                        },
+                        ""BedtimeWake5StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 5: start and finish time""
+                        },
+                        ""BedtimeWake6StartFinish"": {
+                            ""type"": ""string"",
+                            ""description"": ""Bedtime wake up 6: start and finish time""
+                        },
                         ""FeedTime"": {
                             ""type"": ""string"",
                             ""description"": ""Time Savannah was fed""
                         },
                         ""Notes"": {
                             ""type"": ""string"",
-                            ""description"": ""General notes or observations about sleep/behavior""
+                            ""description"": ""General notes or observations about sleep/behavior. When adding a new note, retrieve the existing Notes value first, then append the new note as a bullet point (- New note text). If Notes is empty or 'None', start with the first bullet point.""
                         }
                     },
                     ""additionalProperties"": false,
@@ -316,8 +340,28 @@ Pay attention to context clues to determine which nap (1, 2, or 3) they're refer
                     continue;
                 }
 
-                propertyInfo.SetValue(entity, value);
-                updatedFields.Add($"{fieldName} = '{value}'");
+                // Special handling for Notes field - append with bullet point
+                if (fieldName == "Notes")
+                {
+                    var existingNotes = propertyInfo.GetValue(entity) as string;
+                    if (string.IsNullOrEmpty(existingNotes) || existingNotes == "None")
+                    {
+                        // First note - just add the bullet point
+                        propertyInfo.SetValue(entity, $"- {value}");
+                    }
+                    else
+                    {
+                        // Append new note with bullet point
+                        propertyInfo.SetValue(entity, $"{existingNotes}\n- {value}");
+                    }
+                    updatedFields.Add($"{fieldName} appended: '- {value}'");
+                }
+                else
+                {
+                    propertyInfo.SetValue(entity, value);
+                    updatedFields.Add($"{fieldName} = '{value}'");
+                }
+                
                 _logger.LogInformation("Updated {Field} to {Value}", fieldName, value);
             }
 

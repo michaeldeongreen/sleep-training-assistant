@@ -118,6 +118,14 @@ public class TableStorageService
             result.AppendLine($"  Time Put in Crib: {entity.BedtimeTimePutInCrib ?? "Not recorded"}");
             result.AppendLine($"  Sleep Start: {entity.BedtimeTimeSleepStart ?? "Not recorded"}");
             result.AppendLine();
+            result.AppendLine("Bedtime Wake Ups:");
+            result.AppendLine($"  Wake 1: {entity.BedtimeWake1StartFinish ?? "Not recorded"}");
+            result.AppendLine($"  Wake 2: {entity.BedtimeWake2StartFinish ?? "Not recorded"}");
+            result.AppendLine($"  Wake 3: {entity.BedtimeWake3StartFinish ?? "Not recorded"}");
+            result.AppendLine($"  Wake 4: {entity.BedtimeWake4StartFinish ?? "Not recorded"}");
+            result.AppendLine($"  Wake 5: {entity.BedtimeWake5StartFinish ?? "Not recorded"}");
+            result.AppendLine($"  Wake 6: {entity.BedtimeWake6StartFinish ?? "Not recorded"}");
+            result.AppendLine();
             result.AppendLine($"Feed Time: {entity.FeedTime ?? "Not recorded"}");
             result.AppendLine($"Notes: {entity.Notes ?? "None"}");
 

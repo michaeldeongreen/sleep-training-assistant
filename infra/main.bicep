@@ -94,7 +94,6 @@ module storage './modules/storage.bicep' = {
     principalId: appService.outputs.principalId
     principalType: 'ServicePrincipal'
     userPrincipalId: principalId
-    appServiceOutboundIps: appService.outputs.outboundIpAddresses
   }
 }
 

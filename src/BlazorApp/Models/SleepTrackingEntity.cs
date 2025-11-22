@@ -32,6 +32,14 @@ public class SleepTrackingEntity : ITableEntity
     public string? BedtimeTimePutInCrib { get; set; }
     public string? BedtimeTimeSleepStart { get; set; }
     
+    // Bedtime Wake Ups
+    public string? BedtimeWake1StartFinish { get; set; }
+    public string? BedtimeWake2StartFinish { get; set; }
+    public string? BedtimeWake3StartFinish { get; set; }
+    public string? BedtimeWake4StartFinish { get; set; }
+    public string? BedtimeWake5StartFinish { get; set; }
+    public string? BedtimeWake6StartFinish { get; set; }
+    
     public string? FeedTime { get; set; }
     public string? Notes { get; set; }
 }
