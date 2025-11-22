@@ -3,6 +3,8 @@
 @using BlazorApp.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
+@using Markdig
+@using Microsoft.AspNetCore.Components
 @attribute [Authorize]
 @inject AzureOpenAIService OpenAIService
 @inject ILogger<Chat> Logger
@@ -28,7 +30,7 @@
             <div class="message @message.Role">
                 <div class="message-content">
                     <div class="message-role">@(message.Role == "user" ? "You" : "Assistant")</div>
-                    <div class="message-text">@message.Content</div>
+                    <div class="message-text">@((MarkupString)ConvertMarkdownToHtml(message.Content))</div>
                     <div class="message-time">@message.Timestamp.ToString("HH:mm")</div>
                 </div>
             </div>
@@ -155,5 +157,17 @@
         {
             Logger.LogWarning(ex, "Could not scroll to bottom");
         }
+    }
+
+    private string ConvertMarkdownToHtml(string markdown)
+    {
+        if (string.IsNullOrEmpty(markdown))
+            return string.Empty;
+
+        var pipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .Build();
+
+        return Markdown.ToHtml(markdown, pipeline);
     }
 }
