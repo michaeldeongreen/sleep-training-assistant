@@ -109,7 +109,8 @@ PROVIDED DOCUMENTS:
 INSTRUCTIONS:
 - Use information from the sleep training guide to answer questions
 - Reference today's sleep tracking data when discussing Savannah's current schedule
-- When the user mentions sleep-related times or events, use the update_sleep_tracking tool to save them
+- When the user mentions sleep-related times or events for TODAY, use the update_sleep_tracking tool to save them
+- When the user asks about PAST dates (yesterday, last week, specific dates), use the query_sleep_history tool to retrieve historical data
 - Be helpful, supportive, and informative about sleep training
 - If asked about specific data in the documents, check if they are loaded first
 - **IMPORTANT**: Always format your responses using Markdown syntax:
@@ -121,14 +122,17 @@ INSTRUCTIONS:
 
 UNDERSTANDING USER INPUT:
 When users say things like:
-- ""She woke up at 7 AM"" -> update WakeUp field
-- ""Put her in crib at 9:30"" (context: nap 1) -> update Nap1TimePutInCrib
-- ""She fell asleep at 9:45"" (context: nap 1) -> update Nap1SleepStart  
-- ""She woke from nap 1 at 10:30"" -> update Nap1Finish
-- ""Fed her at 6 PM"" -> update FeedTime
-- ""Had a rough night"" -> update Notes
+- ""She woke up at 7 AM"" -> update WakeUp field (TODAY)
+- ""Put her in crib at 9:30"" (context: nap 1) -> update Nap1TimePutInCrib (TODAY)
+- ""She fell asleep at 9:45"" (context: nap 1) -> update Nap1SleepStart (TODAY)
+- ""She woke from nap 1 at 10:30"" -> update Nap1Finish (TODAY)
+- ""Fed her at 6 PM"" -> update FeedTime (TODAY)
+- ""Had a rough night"" -> update Notes (TODAY)
+- ""What time did she wake up yesterday?"" -> use query_sleep_history with yesterday's date
+- ""How were her naps this week?"" -> use query_sleep_history with date range for the past 7 days
+- ""Show me Tuesday's sleep data"" -> use query_sleep_history with the specific date
 
-Pay attention to context clues to determine which nap (1, 2, or 3) they're referring to.";
+Pay attention to context clues to determine which nap (1, 2, or 3) they're referring to and whether they're talking about today or a past date.";
 
             // Define the function/tool for updating sleep tracking
             // BEST PRACTICE: Single tool that accepts multiple field updates in one call
@@ -225,6 +229,26 @@ Pay attention to context clues to determine which nap (1, 2, or 3) they're refer
                 }")
             );
 
+            // Define tool for querying historical sleep data
+            var querySleepHistoryTool = ChatTool.CreateFunctionTool(
+                functionName: "query_sleep_history",
+                functionDescription: "Retrieves sleep tracking data for a specific date or date range. Use this when the user asks about past days (yesterday, last week, specific dates, etc.). For today's data, it's already provided in the system prompt.",
+                functionParameters: BinaryData.FromString(@"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""startDate"": {
+                            ""type"": ""string"",
+                            ""description"": ""Start date in YYYYMMDD format (e.g., '20251121' for November 21, 2025). Calculate this from the current date based on user's query (yesterday, last Tuesday, etc.)""
+                        },
+                        ""endDate"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional end date in YYYYMMDD format for range queries. If omitted, only the startDate is queried.""
+                        }
+                    },
+                    ""required"": [""startDate""]
+                }")
+            );
+
             // Prepare messages - use fully qualified name to avoid ambiguity
             var messages = new List<OpenAI.Chat.ChatMessage>();
             messages.Add(OpenAI.Chat.ChatMessage.CreateSystemMessage(systemPrompt));
@@ -241,10 +265,10 @@ Pay attention to context clues to determine which nap (1, 2, or 3) they're refer
             // Add current user message
             messages.Add(OpenAI.Chat.ChatMessage.CreateUserMessage(userMessage));
 
-            // Configure chat options with the tool
+            // Configure chat options with the tools
             var chatOptions = new ChatCompletionOptions
             {
-                Tools = { updateSleepTrackingTool }
+                Tools = { updateSleepTrackingTool, querySleepHistoryTool }
             };
 
             // Get AI response - it may call the tool
@@ -278,6 +302,24 @@ Pay attention to context clues to determine which nap (1, 2, or 3) they're refer
 
                         // Tell the AI the result of the tool call
                         messages.Add(OpenAI.Chat.ChatMessage.CreateToolMessage(toolCall.Id, updateResult));
+                    }
+                    else if (toolCall.FunctionName == "query_sleep_history")
+                    {
+                        _logger.LogInformation("Querying sleep history with arguments: {Args}", toolCall.FunctionArguments.ToString());
+
+                        // Parse the arguments
+                        var args = JsonDocument.Parse(toolCall.FunctionArguments.ToString());
+                        var startDate = args.RootElement.GetProperty("startDate").GetString();
+                        var endDate = args.RootElement.TryGetProperty("endDate", out var endDateProp) 
+                            ? endDateProp.GetString() 
+                            : null;
+
+                        // Query historical data
+                        var historicalData = await _tableStorageService.GetDateRangeAsync(startDate!, endDate);
+                        var formattedData = _tableStorageService.FormatHistoricalDataAsText(historicalData);
+
+                        // Tell the AI the result
+                        messages.Add(OpenAI.Chat.ChatMessage.CreateToolMessage(toolCall.Id, formattedData));
                     }
                 }
 

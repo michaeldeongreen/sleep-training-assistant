@@ -7,10 +7,11 @@ An AI-powered sleep training assistant built with Blazor Server and Azure OpenAI
 - 💬 **Conversational AI Chat**: Interactive chat UI with markdown rendering powered by Azure OpenAI GPT-4o-mini
 - 📄 **PDF Q&A**: Answer questions from a sleep training guide with automatic text extraction
 - 📊 **AI Function Calling**: Automatically track sleep data (wake times, naps, bedtime) by chatting naturally
+- 📈 **Historical Queries**: Ask about past sleep data - "What time did she wake up yesterday?" or "How were her naps this week?"
 - 🗄️ **Azure Table Storage**: Persistent daily sleep tracking with automatic entity creation
 - ⏰ **Time-Aware AI**: Current CDT time automatically included in every AI prompt
 - 🎨 **Markdown Support**: Beautiful formatting with tables, bold text, lists, and code blocks
-- 🔐 **Secure**: Managed Identity authentication, secrets in Key Vault, storage firewall rules
+- 🔐 **Secure**: Managed Identity authentication with RBAC roles and public network access disabled for storage keys
 - ☁️ **Azure Native**: Fully deployed on Azure with infrastructure as code
 
 ## Architecture
@@ -113,16 +114,25 @@ Visit the URL and sign in with your Entra ID account.
 
 The AI automatically tracks sleep data through natural conversation. Just tell it what happened:
 
-**Track sleep events:**
+**Track today's sleep events:**
 ```
 She woke up at 7 AM
 Put her in crib for nap 1 at 9:30
 She fell asleep at 9:45
 Woke from nap 1 at 11:15
 Fed her at 6 PM
+She woke up at 11:30 PM and went back to sleep at 11:45 PM
 ```
 
-**Ask questions:**
+**Query historical data:**
+```
+What time did she wake up yesterday?
+How consistent were her naps this week?
+Show me last Tuesday's sleep data
+Compare today's bedtime to yesterday's
+```
+
+**Ask questions about the guide:**
 ```
 What are the key principles of sleep training?
 Show me today's sleep data in a table
@@ -130,7 +140,9 @@ How long was nap 1?
 When should the next nap be?
 ```
 
-The AI uses function calling to automatically update Azure Table Storage and formats responses with markdown tables, lists, and formatting.
+The AI uses function calling to automatically update Azure Table Storage for current data and query historical records for past dates. All responses are formatted with markdown tables, lists, and formatting.
+
+![Sleep Training Assistant Screenshot](docs/images/screenshot.png)
 
 ## Project Structure
 
@@ -145,8 +157,8 @@ sleep-training-assistant/
 │       │   └── Layout/
 │       │       └── MainLayout.razor
 │       ├── Services/
-│       │   ├── AzureOpenAIService.cs    # AI chat with function calling
-│       │   ├── TableStorageService.cs   # Sleep tracking data
+│       │   ├── AzureOpenAIService.cs    # AI chat with function calling (update + query tools)
+│       │   ├── TableStorageService.cs   # Sleep tracking data (current + historical)
 │       │   ├── PdfService.cs            # PDF text extraction (PdfPig)
 │       │   └── TimeService.cs           # CDT timezone utilities
 │       ├── Models/
