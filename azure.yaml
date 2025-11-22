@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: sleep-training-assistant
+metadata:
+  template: sleep-training-assistant@0.0.1-beta
+
+services:
+  web:
+    project: ./src/BlazorApp
+    language: csharp
+    host: appservice
+    
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./scripts/postprovision.ps1
+      interactive: false
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./scripts/postprovision.sh
+      interactive: false
+      continueOnError: false

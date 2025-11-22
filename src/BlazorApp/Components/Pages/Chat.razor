@@ -1,0 +1,159 @@
+@page "/"
+@using BlazorApp.Models
+@using BlazorApp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@attribute [Authorize]
+@inject AzureOpenAIService OpenAIService
+@inject ILogger<Chat> Logger
+@inject IJSRuntime JSRuntime
+@inject TableStorageService TableStorage
+@inject TimeService TimeService
+
+<PageTitle>Sleep Training Assistant</PageTitle>
+
+<div class="chat-container">
+    <div class="chat-header">
+        <h1>Sleep Training Assistant</h1>
+        <p>Ask questions about sleep training or manage your tracking data</p>
+        <div class="info-bar">
+            <span class="info-item">📅 Tracking Date: @trackingDate</span>
+            <span class="info-item">📄 Guide: extracted-text.txt</span>
+        </div>
+    </div>
+
+    <div class="chat-messages" @ref="messagesContainer">
+        @foreach (var message in messages)
+        {
+            <div class="message @message.Role">
+                <div class="message-content">
+                    <div class="message-role">@(message.Role == "user" ? "You" : "Assistant")</div>
+                    <div class="message-text">@message.Content</div>
+                    <div class="message-time">@message.Timestamp.ToString("HH:mm")</div>
+                </div>
+            </div>
+        }
+        @if (isLoading)
+        {
+            <div class="message assistant">
+                <div class="message-content">
+                    <div class="message-role">Assistant</div>
+                    <div class="message-text">
+                        <span class="loading-dots">Thinking</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="chat-input">
+        <input type="text" 
+               @bind="currentMessage" 
+               @bind:event="oninput"
+               @onkeyup="HandleKeyUp"
+               placeholder="Type your message here..." 
+               disabled="@isLoading" />
+        <button @onclick="SendMessage" disabled="@(isLoading || string.IsNullOrWhiteSpace(currentMessage))">
+            Send
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<ChatMessage> messages = new();
+    private string currentMessage = string.Empty;
+    private bool isLoading = false;
+    private ElementReference messagesContainer;
+    private string trackingDate = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        // Set the tracking date
+        var currentDate = TimeService.GetCurrentCentralTime();
+        trackingDate = currentDate.ToString("MMM dd, yyyy");
+
+        // Add welcome message
+        messages.Add(new ChatMessage
+        {
+            Role = "assistant",
+            Content = "Hello! I'm your Sleep Training Assistant. I can help you with:\n\n" +
+                     "• Answering questions about sleep training from the guide\n" +
+                     "• Reading and updating your Excel tracking spreadsheet\n" +
+                     "• Providing the current time in CDT\n\n" +
+                     "What would you like to know?",
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentMessage) || isLoading)
+            return;
+
+        var userMessage = currentMessage.Trim();
+        currentMessage = string.Empty;
+
+        // Add user message
+        messages.Add(new ChatMessage
+        {
+            Role = "user",
+            Content = userMessage,
+            Timestamp = DateTime.UtcNow
+        });
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Get AI response
+            var response = await OpenAIService.GetChatResponseAsync(
+                messages.Where(m => m != messages.Last()).ToList(),
+                userMessage);
+
+            // Add assistant response
+            messages.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = response.Message,
+                Timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error sending message");
+            messages.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = "I'm sorry, I encountered an error. Please try again.",
+                Timestamp = DateTime.UtcNow
+            });
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToBottom");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not scroll to bottom");
+        }
+    }
+}

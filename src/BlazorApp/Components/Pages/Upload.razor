@@ -1,0 +1,131 @@
+@page "/upload"
+@using Microsoft.AspNetCore.Authorization
+@using Azure.Storage.Blobs
+@using Azure.Identity
+@using UglyToad.PdfPig
+@inject IConfiguration Configuration
+@inject ILogger<Upload> Logger
+@attribute [Authorize]
+
+<PageTitle>Upload Documents</PageTitle>
+
+<h1>Upload Sleep Training Guide</h1>
+
+<div class="alert alert-info">
+    <p>Upload your sleep training PDF guide here. It will be used by the AI assistant to provide personalized guidance.</p>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success")">
+        @message
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Sleep Training Guide (PDF)</h5>
+            </div>
+            <div class="card-body">
+                <InputFile OnChange="@OnPdfSelected" accept=".pdf" class="form-control" />
+                @if (uploadingPdf)
+                {
+                    <div class="mt-2">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Uploading...</span>
+                        </div>
+                        <span class="ms-2">Uploading and processing PDF...</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="/" class="btn btn-primary">Go to Chat</a>
+</div>
+
+@code {
+    private bool uploadingPdf = false;
+    private string message = string.Empty;
+    private bool isError = false;
+
+    private async Task OnPdfSelected(InputFileChangeEventArgs e)
+    {
+        uploadingPdf = true;
+        message = string.Empty;
+        isError = false;
+
+        try
+        {
+            var file = e.File;
+            if (file.Size > 10 * 1024 * 1024) // 10MB limit
+            {
+                message = "PDF file is too large. Maximum size is 10MB.";
+                isError = true;
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            // Extract text from PDF
+            Logger.LogInformation("Extracting text from uploaded PDF");
+            string extractedText;
+            using (var pdfDocument = PdfDocument.Open(memoryStream))
+            {
+                var textBuilder = new System.Text.StringBuilder();
+                foreach (var page in pdfDocument.GetPages())
+                {
+                    textBuilder.AppendLine(page.Text);
+                    textBuilder.AppendLine();
+                }
+                extractedText = textBuilder.ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(extractedText))
+            {
+                message = "Could not extract text from PDF. Please ensure the PDF contains readable text.";
+                isError = true;
+                return;
+            }
+
+            // Save to blob storage
+            var storageAccountName = Configuration["Storage:AccountName"] ?? Configuration["STORAGE_ACCOUNT_NAME"];
+            if (string.IsNullOrEmpty(storageAccountName))
+            {
+                message = "Storage account not configured.";
+                isError = true;
+                return;
+            }
+
+            var blobServiceClient = new BlobServiceClient(
+                new Uri($"https://{storageAccountName}.blob.core.windows.net"),
+                new DefaultAzureCredential());
+
+            var containerClient = blobServiceClient.GetBlobContainerClient("pdf-content");
+            await containerClient.CreateIfNotExistsAsync();
+
+            var blobClient = containerClient.GetBlobClient("extracted-text.txt");
+            await blobClient.UploadAsync(BinaryData.FromString(extractedText), overwrite: true);
+
+            message = $"PDF uploaded successfully! Extracted {extractedText.Length} characters.";
+            Logger.LogInformation("PDF uploaded and processed successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error uploading PDF");
+            message = $"Error uploading PDF: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            uploadingPdf = false;
+        }
+    }
+}

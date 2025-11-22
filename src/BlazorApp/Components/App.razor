@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="BlazorApp.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.ico" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+    <script>
+        window.scrollToBottom = function() {
+            // Retry mechanism to ensure DOM is ready
+            const scrollAttempt = (attempts = 0) => {
+                const chatMessages = document.querySelector('.chat-messages');
+                if (chatMessages) {
+                    // Smooth scroll to bottom
+                    chatMessages.scrollTo({
+                        top: chatMessages.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                } else if (attempts < 10) {
+                    // Retry after a short delay if element not found
+                    setTimeout(() => scrollAttempt(attempts + 1), 50);
+                }
+            };
+            
+            // Use requestAnimationFrame to ensure DOM has rendered
+            requestAnimationFrame(() => {
+                setTimeout(() => scrollAttempt(), 0);
+            });
+        }
+
+        window.setupMessageInput = function(element, dotnetHelper) {
+            element.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    dotnetHelper.invokeMethodAsync('SendMessageFromJS');
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
