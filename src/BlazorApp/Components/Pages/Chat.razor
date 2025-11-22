@@ -76,11 +76,11 @@
         messages.Add(new ChatMessage
         {
             Role = "assistant",
-            Content = "Hello! I'm your Sleep Training Assistant. I can help you with:\n\n" +
+            Content = "Hello! I'm your Sleep Training Assistant for Savannah. I can help you with:\n\n" +
                      "• Answering questions about sleep training from the guide\n" +
-                     "• Reading and updating your Excel tracking spreadsheet\n" +
-                     "• Providing the current time in CDT\n\n" +
-                     "What would you like to know?",
+                     "• Tracking daily sleep data (wake times, naps, bedtime, feedings)\n" +
+                     "• Viewing today's sleep tracking information\n\n" +
+                     "Just tell me what happened (e.g., 'She woke up at 7 AM' or 'Put her down for nap 1 at 9:30') and I'll record it!",
             Timestamp = DateTime.UtcNow
         });
     }

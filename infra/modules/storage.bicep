@@ -4,7 +4,7 @@ param tags object = {}
 param principalId string
 param principalType string = 'ServicePrincipal'
 param userPrincipalId string = ''
-param clientIpAddress string = ''
+param appServiceOutboundIps array = []
 
 resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' = {
   name: name
@@ -21,12 +21,10 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' = {
     networkAcls: {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
-      ipRules: clientIpAddress != '' ? [
-        {
-          value: clientIpAddress
-          action: 'Allow'
-        }
-      ] : []
+      ipRules: [for ip in appServiceOutboundIps: {
+        value: ip
+        action: 'Allow'
+      }]
     }
   }
 }

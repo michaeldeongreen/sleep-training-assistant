@@ -51,3 +51,4 @@ output name string = appService.name
 output id string = appService.id
 output uri string = 'https://${appService.properties.defaultHostName}'
 output principalId string = appService.identity.principalId
+output outboundIpAddresses array = split(appService.properties.outboundIpAddresses, ',')

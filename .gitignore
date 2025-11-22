@@ -253,3 +253,8 @@ secrets.json
 # Temporary files
 *.tmp
 *.temp
+app-logs/
+app-logs.zip
+
+app-logs/
+app-logs.zip

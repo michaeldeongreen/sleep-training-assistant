@@ -15,9 +15,6 @@ param principalId string = ''
 @description('PDF file URL for the sleep training document')
 param pdfFileUrl string = ''
 
-@description('Client IP address for storage firewall access')
-param clientIpAddress string = ''
-
 @description('Azure AD Tenant ID for authentication')
 param azureAdTenantId string = ''
 
@@ -27,7 +24,7 @@ param azureAdClientId string = ''
 // Tags for all resources
 var tags = {
   'azd-env-name': environmentName
-  'application': 'sleep-training-assistant'
+  application: 'sleep-training-assistant'
 }
 
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -97,7 +94,7 @@ module storage './modules/storage.bicep' = {
     principalId: appService.outputs.principalId
     principalType: 'ServicePrincipal'
     userPrincipalId: principalId
-    clientIpAddress: clientIpAddress
+    appServiceOutboundIps: appService.outputs.outboundIpAddresses
   }
 }
 

@@ -85,10 +85,16 @@ public class AzureOpenAIService
             _logger.LogInformation("PDF content length: {Length}", pdfContent?.Length ?? 0);
             _logger.LogInformation("Sleep tracking data length: {Length}", sleepTrackingData?.Length ?? 0);
 
+            // Get current time in CDT
+            var currentTime = _timeService.GetCurrentCentralTime();
+            var currentTimeString = currentTime.ToString("dddd, MMMM dd, yyyy h:mm tt");
+
             // Build the system prompt - this is critical for the AI to understand its capabilities
             var systemPrompt = $@"You are a helpful AI assistant for a sleep training application for Savannah.
 
 You have access to the sleep training guide document and today's sleep tracking data.
+
+CURRENT TIME: {currentTimeString} (Central Daylight Time)
 
 PROVIDED DOCUMENTS:
 
