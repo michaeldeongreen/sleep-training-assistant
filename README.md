@@ -1,32 +1,33 @@
 # Sleep Training Assistant
 
-An AI-powered sleep training assistant built with Blazor Server and Azure OpenAI. The application helps users manage sleep training by answering questions from a sleep training guide (PDF), tracking data in Excel, and providing intelligent assistance.
+An AI-powered sleep training assistant built with Blazor Server and Azure OpenAI. The application helps track and manage Savannah's sleep training by answering questions from a sleep training guide (PDF) and automatically tracking daily sleep data through conversational AI.
 
 ## Features
 
-- 💬 **Chat Interface**: Interactive chat UI powered by Azure OpenAI GPT-4o-mini
-- 📄 **PDF Q&A**: Answer questions from a 7-page sleep training guide
-- 📊 **Excel Integration**: Read and update Excel files stored in OneDrive
-- ⏰ **Time Functions**: Get current time in CDT timezone
-- 🔐 **Secure Authentication**: Easy Auth with Entra ID
+- 💬 **Conversational AI Chat**: Interactive chat UI with markdown rendering powered by Azure OpenAI GPT-4o-mini
+- 📄 **PDF Q&A**: Answer questions from a sleep training guide with automatic text extraction
+- 📊 **AI Function Calling**: Automatically track sleep data (wake times, naps, bedtime) by chatting naturally
+- 🗄️ **Azure Table Storage**: Persistent daily sleep tracking with automatic entity creation
+- ⏰ **Time-Aware AI**: Current CDT time automatically included in every AI prompt
+- 🎨 **Markdown Support**: Beautiful formatting with tables, bold text, lists, and code blocks
+- 🔐 **Secure**: Managed Identity authentication, secrets in Key Vault, storage firewall rules
 - ☁️ **Azure Native**: Fully deployed on Azure with infrastructure as code
 
 ## Architecture
 
-- **Frontend**: Blazor Server (.NET 8)
-- **AI Model**: Azure OpenAI GPT-4o-mini
-- **PDF Processing**: Azure AI Document Intelligence
-- **Excel Access**: Microsoft Graph API
-- **Storage**: Azure Blob Storage
-- **Authentication**: Entra ID with Easy Auth
-- **Deployment**: Azure Developer CLI (azd)
+- **Frontend**: Blazor Server (.NET 8) with Markdig for markdown rendering
+- **AI Model**: Azure OpenAI GPT-4o-mini with function calling
+- **PDF Processing**: PdfPig for text extraction
+- **Data Storage**: Azure Table Storage for daily sleep tracking
+- **Blob Storage**: Azure Blob Storage for PDF content
+- **Authentication**: Managed Identity with RBAC roles
+- **Deployment**: Azure Developer CLI (azd) with Bicep IaC
 
 ## Prerequisites
 
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [Azure Subscription](https://azure.microsoft.com/free/)
-- An existing Azure AI Services resource (or will create new)
 - Access to Azure OpenAI Service (requires approval)
 
 ## Local Development Setup
@@ -46,18 +47,15 @@ Create a new environment:
 azd env new <environment-name>
 ```
 
-Set required variables:
+Set optional variables:
 
 ```bash
-# Optional: If you have existing Azure AI Services
-azd env set AZURE_AI_SERVICES_ENDPOINT "https://your-ai-services.cognitiveservices.azure.com/"
-azd env set AZURE_AI_SERVICES_KEY "your-key"
-
-# Optional: PDF file URL (can be set later)
+# Optional: PDF file URL (can be set later or uploaded to blob storage)
 azd env set PDF_FILE_URL "https://path-to-your-pdf-file.pdf"
 
-# Optional: Excel file URL (can be set later in Azure Portal)
-azd env set EXCEL_FILE_URL "https://1drv.ms/x/your-sharing-link"
+# Optional: Azure AD credentials for authentication
+azd env set AZURE_AD_TENANT_ID "your-tenant-id"
+azd env set AZURE_AD_CLIENT_ID "your-app-registration-client-id"
 ```
 
 ## Deployment
@@ -69,54 +67,26 @@ azd up
 ```
 
 This command will:
-1. Provision all Azure resources (App Service, OpenAI, Storage, Key Vault)
-2. Create an App Registration in Entra ID
-3. Deploy the Blazor application
-4. Configure Easy Auth
+1. Provision all Azure resources (App Service, OpenAI, Storage Account, Table Storage)
+2. Configure managed identity and RBAC roles
+3. Deploy the Blazor application with automatic sleep tracking
 
-**Deployment time**: ~10-15 minutes
+**Deployment time**: ~5-10 minutes
 
-### Post-Deployment Manual Steps
+### Post-Deployment Configuration
 
-After `azd up` completes, you need to perform these manual steps:
+#### Upload PDF File (Optional)
 
-#### Step 1: Grant Admin Consent for Graph API Permissions
+You can either set the PDF URL or upload directly to blob storage:
 
-1. Go to [Azure Portal](https://portal.azure.com) → **Entra ID** → **App Registrations**
-2. Find your app (search for your environment name)
-3. Click **API Permissions**
-4. Click **Grant admin consent for [Your Organization]**
-5. Confirm the consent
-
-**Required Permissions:**
-- `Files.Read.All` or `Files.ReadWrite.All` (delegated)
-- `User.Read` (delegated)
-
-#### Step 2: Configure Excel File URL
-
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to your **App Service** (name will include your environment name)
-3. Go to **Configuration** → **Application settings**
-4. Update `EXCEL_FILE_URL` with your OneDrive sharing link or file path
-5. Click **Save**
-
-**Supported formats:**
-- OneDrive sharing link: `https://1drv.ms/x/...`
-- SharePoint link: `https://yourorg.sharepoint.com/...`
-
-#### Step 3: Configure PDF File URL (if not set earlier)
-
-1. In the same **App Service Configuration** page
+**Option 1: Set PDF URL in App Service**
+1. Go to **App Service** → **Configuration** → **Application settings**
 2. Update `PDF_FILE_URL` with your PDF URL
 3. Click **Save**
 
-**Or upload PDF to blob storage:**
-
+**Option 2: Upload to Blob Storage**
 ```bash
-# Get storage account name
 STORAGE_ACCOUNT=$(azd env get-value AZURE_STORAGE_ACCOUNT_NAME)
-
-# Upload PDF
 az storage blob upload \
   --account-name $STORAGE_ACCOUNT \
   --container-name pdf-content \
@@ -125,35 +95,7 @@ az storage blob upload \
   --auth-mode login
 ```
 
-#### Step 4: Configure Easy Auth with App Registration
-
-The infrastructure creates an App Registration, but Easy Auth needs to be configured manually:
-
-1. Go to your **App Service** → **Authentication**
-2. Click **Add identity provider**
-3. Select **Microsoft**
-4. Choose **Pick an existing app registration**
-5. Select the app registration created by azd
-6. Set **Issuer URL**: `https://login.microsoftonline.com/{tenant-id}/v2.0`
-7. Click **Add**
-
-## Inviting Users
-
-To allow other users to access the application:
-
-### Internal Users (Same Organization)
-They can sign in automatically if they're in your Entra ID tenant.
-
-### External Users (B2B Guests)
-
-1. Go to [Azure Portal](https://portal.azure.com) → **Entra ID** → **Users**
-2. Click **New user** → **Invite external user**
-3. Enter their email address
-4. Click **Invite**
-5. They'll receive an email to accept the invitation
-6. Once accepted, they can sign in to your app
-
-**Note**: Inviting to Entra ID (for app access) is different from inviting to Azure subscription (for resource management).
+The app will automatically extract text from the PDF using PdfPig and make it available to the AI.
 
 ## Application Usage
 
@@ -167,72 +109,68 @@ azd env get-value SERVICE_WEB_URI
 
 Visit the URL and sign in with your Entra ID account.
 
-### Chat Examples
+### How It Works
 
-**Ask about the PDF:**
+The AI automatically tracks sleep data through natural conversation. Just tell it what happened:
+
+**Track sleep events:**
+```
+She woke up at 7 AM
+Put her in crib for nap 1 at 9:30
+She fell asleep at 9:45
+Woke from nap 1 at 11:15
+Fed her at 6 PM
+```
+
+**Ask questions:**
 ```
 What are the key principles of sleep training?
+Show me today's sleep data in a table
+How long was nap 1?
+When should the next nap be?
 ```
 
-**Get current time:**
-```
-What time is it in CDT?
-```
-
-**Update Excel:**
-```
-Update cell A1 to "Sleep Training Log" and A2 to today's date
-```
-
-**Read Excel data:**
-```
-Show me the data from range A1:C10
-```
+The AI uses function calling to automatically update Azure Table Storage and formats responses with markdown tables, lists, and formatting.
 
 ## Project Structure
 
 ```
 sleep-training-assistant/
 ├── src/
-│   └── BlazorApp/               # Blazor Server application
+│   └── BlazorApp/
 │       ├── Components/
 │       │   ├── Pages/
-│       │   │   └── Chat.razor   # Main chat interface
+│       │   │   ├── Chat.razor           # Main chat with markdown rendering
+│       │   │   └── Upload.razor         # PDF upload page
 │       │   └── Layout/
 │       │       └── MainLayout.razor
 │       ├── Services/
-│       │   ├── AzureOpenAIService.cs   # AI chat service
-│       │   ├── GraphService.cs         # Excel operations
-│       │   ├── PdfService.cs           # PDF text loading
-│       │   └── TimeService.cs          # Time utilities
+│       │   ├── AzureOpenAIService.cs    # AI chat with function calling
+│       │   ├── TableStorageService.cs   # Sleep tracking data
+│       │   ├── PdfService.cs            # PDF text extraction (PdfPig)
+│       │   └── TimeService.cs           # CDT timezone utilities
 │       ├── Models/
 │       │   ├── ChatMessage.cs
-│       │   └── ExcelData.cs
+│       │   └── SleepTrackingEntity.cs   # Table Storage entity
 │       └── Program.cs
-├── infra/                       # Infrastructure as Code
-│   ├── main.bicep              # Main infrastructure
+├── infra/                        # Infrastructure as Code (Bicep)
+│   ├── main.bicep
 │   └── modules/
-│       ├── app-service.bicep
-│       ├── openai.bicep
-│       ├── storage.bicep
-│       └── keyvault.bicep
-├── scripts/
-│   ├── postprovision.sh        # Post-deployment script (Linux/Mac)
-│   └── postprovision.ps1       # Post-deployment script (Windows)
-├── azure.yaml                   # Azure Developer CLI config
-└── README.md
+│       ├── app-service.bicep     # App Service with managed identity
+│       ├── openai.bicep          # Azure OpenAI deployment
+│       ├── storage.bicep         # Storage with firewall rules
+│       └── openai-role.bicep     # RBAC role assignments
+└── azure.yaml                    # Azure Developer CLI config
 ```
 
 ## Cost Estimate
 
 | Resource | Tier | Monthly Cost |
 |----------|------|--------------|
-| App Service Plan | B1 | ~$13 |
-| Azure OpenAI | GPT-4o-mini usage | ~$5-20 |
+| App Service Plan | B1 (Linux) | ~$13 |
+| Azure OpenAI | GPT-4o-mini usage | ~$5-15 |
 | Storage Account | Standard LRS | ~$0.50 |
-| Key Vault | Standard | ~$0.10 |
-| AI Document Intelligence | One-time extraction | ~$0.01 |
-| **Total** | | **~$20-40/month** |
+| **Total** | | **~$20-30/month** |
 
 ## Configuration Reference
 
@@ -242,43 +180,39 @@ Set these with `azd env set <name> <value>`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AZURE_AI_SERVICES_ENDPOINT` | Optional | Existing AI Services endpoint |
-| `AZURE_AI_SERVICES_KEY` | Optional | Existing AI Services key |
 | `PDF_FILE_URL` | Optional | URL to sleep training PDF |
-| `EXCEL_FILE_URL` | Optional | OneDrive URL to Excel file |
+| `AZURE_AD_TENANT_ID` | Optional | Entra ID tenant for authentication |
+| `AZURE_AD_CLIENT_ID` | Optional | App registration client ID |
 
-### App Settings (in Azure Portal)
+### App Settings (Auto-configured)
 
-Configure these in App Service → Configuration:
+These are automatically set by the deployment:
 
-- `AZURE_OPENAI_ENDPOINT`: Auto-configured
-- `AZURE_OPENAI_DEPLOYMENT_NAME`: Auto-configured (gpt-4o-mini)
-- `AZURE_KEY_VAULT_ENDPOINT`: Auto-configured
-- `STORAGE_ACCOUNT_NAME`: Auto-configured
-- `EXCEL_FILE_URL`: Set manually
-- `PDF_FILE_URL`: Set manually
+- `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint
+- `AZURE_OPENAI_DEPLOYMENT_NAME`: `4o-mini`
+- `STORAGE_ACCOUNT_NAME`: Storage account for blobs/tables
+- `STORAGE_CONTAINER_NAME`: `pdf-content`
+- `STORAGE_TABLE_NAME`: `SleepTracking`
 
 ## Troubleshooting
 
 ### PDF text not loading
 
-1. Check if `PDF_FILE_URL` is configured in App Service settings
-2. Verify Azure AI Services endpoint and key are correct
-3. Check application logs for extraction errors
-4. Manually upload extracted text to blob storage
+1. Check `PDF_FILE_URL` is set or PDF is uploaded to blob storage
+2. Visit the Upload page to manually upload the PDF
+3. Check App Service logs for PdfPig extraction errors
 
-### Excel operations failing
+### Sleep tracking not saving
 
-1. Verify admin consent was granted for Graph API permissions
-2. Check `EXCEL_FILE_URL` format is correct
-3. Ensure the signed-in user has access to the Excel file
-4. Check application logs for Graph API errors
+1. Verify storage account firewall allows App Service outbound IPs
+2. Check managed identity has Table Storage Data Contributor role
+3. View logs for Azure Table Storage connection errors
 
-### Authentication issues
+### AI not tracking data automatically
 
-1. Verify Easy Auth is configured with the correct App Registration
-2. Check redirect URIs include your app's URL
-3. Ensure users are in your Entra ID tenant or invited as guests
+1. Ensure you're using natural language like "She woke up at 7 AM"
+2. Check logs to see if the AI is calling the `update_sleep_tracking` function
+3. Verify the function call arguments in the logs
 
 ### View Logs
 
@@ -297,23 +231,24 @@ To delete all resources:
 azd down
 ```
 
-This will delete the resource group and all resources, but NOT the App Registration (must be deleted manually).
+This will delete the resource group and all resources.
 
-## Security Notes
+## Key Technologies
 
-- All secrets stored in Azure Key Vault
-- Managed Identity used for Azure service authentication
-- HTTPS enforced for all connections
-- Easy Auth provides enterprise-grade authentication
-- No secrets in code or configuration files
+- **Markdig**: Markdown to HTML conversion with advanced extensions
+- **PdfPig**: Pure .NET PDF text extraction
+- **Azure.Data.Tables**: Table Storage SDK with managed identity
+- **OpenAI Function Calling**: Structured data extraction from conversation
+- **Blazor Server**: Real-time server-side rendering
+- **Azure RBAC**: Role-based access control for storage
 
-## Contributing
+## Security Features
 
-This is a template project. Feel free to customize for your needs.
-
-## License
-
-MIT License
+- **Managed Identity**: No stored credentials for Azure services
+- **RBAC Roles**: Storage Blob Data Contributor, Storage Table Data Contributor
+- **Storage Firewall**: Only App Service outbound IPs allowed
+- **HTTPS Only**: TLS 1.2 minimum
+- **No Shared Keys**: Storage account uses Entra ID authentication only
 
 ---
 
@@ -321,4 +256,5 @@ MIT License
 
 - [Azure Developer CLI Documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 - [Azure OpenAI Documentation](https://learn.microsoft.com/azure/ai-services/openai/)
-- [Microsoft Graph API Documentation](https://learn.microsoft.com/graph/)
+- [Azure Table Storage Documentation](https://learn.microsoft.com/azure/storage/tables/)
+- [Markdig GitHub](https://github.com/xoofx/markdig)
